@@ -2,5 +2,8 @@
 name = "silence"
 version = "0.1.0"
 edition = "2021"
+description = "A library made to simplify the implementation of a VOIP service."
+license = "Apache-2.0"
+categories = ["asynchronous", "multimedia::audio", "multimedia::encoding", "network-programming"]
 
 [dependencies]
