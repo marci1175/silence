@@ -2,8 +2,21 @@
 name = "silence"
 version = "0.1.0"
 edition = "2021"
-description = "A library made to simplify the implementation of a VOIP service."
+description = "A crate for creating voip services the easiest and the most reliable way."
 license = "Apache-2.0"
-categories = ["asynchronous", "multimedia::audio", "multimedia::encoding", "network-programming"]
+categories = ["asynchronous", "network-programming"]
+
+[features]
+default = ["voice", "udp"]
+video = []
+udp = []
+voice = []
+
+[package.metadata.docs.rs]
+all-features = true
 
 [dependencies]
+parking_lot = "0.12.3"
+serde = "1.0.215"
+silence-core = "0.1.7"
+tokio = "1.41.1"
