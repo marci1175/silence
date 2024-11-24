@@ -1,22 +1,32 @@
 [package]
 name = "silence"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "A crate for creating voip services the easiest and the most reliable way."
 license = "Apache-2.0"
-categories = ["asynchronous", "network-programming"]
+categories = ["asynchronous", "network-programming", "accessibility"]
 
 [features]
 default = ["voice", "udp"]
 video = []
-udp = []
 voice = []
+
+client = []
+server = []
+
+udp = ["tokio/net"]
+
+all = ["video", "voice", "server", "client", "udp"]
 
 [package.metadata.docs.rs]
 all-features = true
 
 [dependencies]
+anyhow = "1.0.93"
 parking_lot = "0.12.3"
-serde = "1.0.215"
+rmp-serde = "1.3.0"
+serde = {version = "1.0.215", features = ["derive"]}
 silence-core = "0.1.7"
-tokio = "1.41.1"
+thiserror = "2.0.3"
+tokio = {version = "1.41.1"}
+uuid = {version = "1.11.0", features = ["v4", "fast-rng", "serde"]}
