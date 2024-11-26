@@ -1,6 +1,8 @@
 //! Provides functions and helpers for the client side of the Voip service.
 use tokio::net::{ToSocketAddrs, UdpSocket};
 use uuid::Uuid;
+use super::Result;
+use super::UdpError;
 
 /// Client struct definition, mnade to simplify the usage of a client.
 #[derive(Debug)]
@@ -33,7 +35,7 @@ impl Client {
 
     /// Writes the message buffer to the [`Client`]'s underlying [`UdpSocket`].
     pub async fn send_message(&self, msg_buf: &[u8]) -> Result<usize> {
-        Ok(self.udp_socket.send(msg_buf).await.map_err(ClientError::SendError)?)
+        Ok(self.udp_socket.send(msg_buf).await.map_err(UdpError::SendError)?)
     }
 }
 
@@ -50,27 +52,9 @@ impl Client {
 /// ***Udp is actually connectionless, please refer to [`UdpSocket::connect`] for its behavior.**
 ///
 pub async fn establish_connection<T: ToSocketAddrs>(remote_addr: T) -> Result<UdpSocket> {
-    let udp_socket = UdpSocket::bind("[::]:0").await.map_err(ClientError::BindError)?;
+    let udp_socket = UdpSocket::bind("[::]:0").await.map_err(UdpError::BindError)?;
 
-    udp_socket.connect(remote_addr).await.map_err(ClientError::ConnectionError)?;
+    udp_socket.connect(remote_addr).await.map_err(UdpError::ConnectionError)?;
 
     Ok(udp_socket)
 }
-
-/// Client error variant definition.
-#[derive(thiserror::Error, Debug)]
-pub enum ClientError {
-    /// This error is thrown when a message has failed to send.
-    #[error("Failed to send message.")]
-    SendError(std::io::Error),
-
-    /// This error is thrown when the [`UdpSocket`] has failed to bind to the local address.
-    #[error("Failed to bind to local address.")]
-    BindError(std::io::Error), 
-
-    /// This error is thrown when no remote address could be resolved.
-    #[error("Failed to resolve remote address.")]
-    ConnectionError(std::io::Error),
-}
-
-type Result<T> = ::std::result::Result<T, ClientError>;

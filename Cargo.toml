@@ -23,6 +23,7 @@ all-features = true
 
 [dependencies]
 anyhow = "1.0.93"
+dashmap = "6.1.0"
 parking_lot = "0.12.3"
 rmp-serde = "1.3.0"
 serde = {version = "1.0.215", features = ["derive"]}
