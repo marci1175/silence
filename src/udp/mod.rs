@@ -14,7 +14,7 @@ pub enum UdpError {
 
     /// This error is thrown when the [`UdpSocket`] has failed to bind to the local address.
     #[error("Failed to bind to local address.")]
-    BindError(std::io::Error), 
+    BindError(std::io::Error),
 
     /// This error is thrown when no remote address could be resolved.
     #[error("Failed to resolve remote address.")]
