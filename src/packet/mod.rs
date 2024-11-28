@@ -23,7 +23,7 @@ pub enum VoipMessageType {
 /// This Packet can contain a [`VoipMessageType::VoiceMessage`] or a [`VoipMessageType::VideoMessage`], with the author's [`Uuid`].
 ///
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub struct VoipPacket {
+pub struct VoipHeader {
     /// The [`VoipMessageType`] of this packet.
     /// Can either be a Voice packet or a Video packet.
     voip_message_type: VoipMessageType,
@@ -33,29 +33,45 @@ pub struct VoipPacket {
     author: Uuid,
 }
 
-///
-/// Creates a message buffer from a VoipPacket and the actual data.
-///
-/// You must ensure that you are sending the correct set of bytes, matching the [VoipPacket::voip_message_type]'s variant.
-///    
-pub fn create_message_buffer(
-    packet: VoipPacket,
-    data: &[u8],
-) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-    //Create buffer
-    let mut buffer: Vec<u8> = vec![];
+pub struct VoipPacket(pub Vec<u8>);
 
-    //Serialize header
-    let serialized_packet = rmp_serde::to_vec(&packet)?;
+impl VoipHeader {
+    /// Creates a new [`VoipPacket`] instance.
+    pub fn new(voip_message_type: VoipMessageType, author: Uuid) -> Self {
+        Self {
+            voip_message_type,
+            author,
+        }
+    }
 
-    //Push length of the message
-    buffer.extend((serialized_packet.len() + data.len()).to_be_bytes());
+    ///
+    /// Creates a message buffer from a VoipPacket and the actual data.
+    ///
+    /// You must ensure that you are sending the correct set of bytes, matching the [VoipPacket::voip_message_type]'s variant.
+    ///    
+    pub fn create_message_buffer(
+        &self,
+        data: &[u8],
+    ) -> Result<VoipPacket, Box<dyn std::error::Error>> {
+        //Create buffer
+        let mut buffer: Vec<u8> = vec![];
 
-    //Push serialized VoipPacket
-    buffer.extend(serialized_packet);
+        //Serialize header
+        let serialized_packet = rmp_serde::to_vec(self)?;
 
-    //Push data
-    buffer.extend(data);
+        //Push length of the message
+        buffer.extend((serialized_packet.len() + data.len()).to_be_bytes());
 
-    Ok(buffer)
+        //Push serialized VoipPacket
+        buffer.extend(serialized_packet);
+
+        //Push data
+        buffer.extend(data);
+
+        Ok(VoipPacket(buffer))
+    }
+
+    pub fn voip_message_type(&self) -> &VoipMessageType {
+        &self.voip_message_type
+    }
 }

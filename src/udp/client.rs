@@ -1,4 +1,6 @@
 //! Provides functions and helpers for the client side of the Voip service.
+use crate::packet::VoipPacket;
+
 use super::Result;
 use super::UdpError;
 use tokio::net::{ToSocketAddrs, UdpSocket};
@@ -34,10 +36,10 @@ impl Client {
     }
 
     /// Writes the message buffer to the [`Client`]'s underlying [`UdpSocket`].
-    pub async fn send_message(&self, msg_buf: &[u8]) -> Result<usize> {
+    pub async fn send_message(&self, msg_buf: &VoipPacket) -> Result<usize> {
         Ok(self
             .udp_socket
-            .send(msg_buf)
+            .send(&msg_buf.0)
             .await
             .map_err(UdpError::SendError)?)
     }
