@@ -4,9 +4,8 @@ const MTU_MAX_PACKET_SIZE: usize = 65535;
 
 use super::{Result, UdpError};
 use crate::packet::{VoipHeader, VoipPacket};
-use dashmap::DashMap;
 use parking_lot::Mutex;
-use std::{net::SocketAddr, option, sync::Arc};
+use std::{net::SocketAddr, sync::Arc};
 use tokio::{
     net::UdpSocket,
     select,
@@ -49,11 +48,9 @@ impl ClientList {
     pub fn remove(&self, key: &SocketAddr) -> Option<SocketAddr> {
         let mut list = self.0.lock();
 
-        if let Some(pos) = list.iter().position(|socket_addr| *socket_addr == *key) {
-            Some(list.swap_remove(pos))
-        } else {
-            None
-        }
+        list.iter()
+            .position(|socket_addr| *socket_addr == *key)
+            .map(|pos| list.swap_remove(pos))
     }
 }
 

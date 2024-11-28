@@ -33,6 +33,8 @@ pub struct VoipHeader {
     author: Uuid,
 }
 
+/// Wrapper type for a buffer.
+#[derive(Debug)]
 pub struct VoipPacket(pub Vec<u8>);
 
 impl VoipHeader {
@@ -71,6 +73,7 @@ impl VoipHeader {
         Ok(VoipPacket(buffer))
     }
 
+    /// Fetches the [`VoipMessageType`] of the [`VoipHeader`].
     pub fn voip_message_type(&self) -> &VoipMessageType {
         &self.voip_message_type
     }

@@ -37,11 +37,10 @@ impl Client {
 
     /// Writes the message buffer to the [`Client`]'s underlying [`UdpSocket`].
     pub async fn send_message(&self, msg_buf: &VoipPacket) -> Result<usize> {
-        Ok(self
-            .udp_socket
+        self.udp_socket
             .send(&msg_buf.0)
             .await
-            .map_err(UdpError::SendError)?)
+            .map_err(UdpError::SendError)
     }
 }
 
