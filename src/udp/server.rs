@@ -1,9 +1,9 @@
 //! Provides functions and helpers for the server side of the Voip service.
-
-const MTU_MAX_PACKET_SIZE: usize = 65535;
-
 use super::{Result, UdpError};
-use crate::packet::{VoipHeader, VoipPacket};
+use crate::{
+    packet::{VoipHeader, VoipPacket},
+    MTU_MAX_PACKET_SIZE,
+};
 use parking_lot::Mutex;
 use std::{net::SocketAddr, sync::Arc};
 use tokio::{
@@ -31,7 +31,8 @@ pub struct Server {
     /// The incoming message's channel.
     inbound_message_receiver: Receiver<(VoipHeader, Vec<u8>, SocketAddr)>,
 
-    outbound_message_receiver: Sender<VoipPacket>,
+    /// This local channel receives messages which will be sent to listening clients at their remote addresses.
+    outbound_message_sender: Sender<VoipPacket>,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -62,7 +63,8 @@ impl Server {
             .map_err(UdpError::BindError)?;
 
         let (outbound_message_sender, mut outbound_message_receiver) = channel::<VoipPacket>(255);
-        let (inbound_message_sender, inbound_message_receiver) = channel(255);
+        let (inbound_message_sender, inbound_message_receiver) =
+            channel::<(VoipHeader, Vec<u8>, SocketAddr)>(255);
         let cancellation_token = CancellationToken::new();
         let client_list = ClientList::default();
         let client_list_clone = client_list.clone();
@@ -73,7 +75,7 @@ impl Server {
                 let client_list = client_list_clone.clone();
 
                 //Create buffer for reading incoming messages
-                let mut buf = vec![0; 8];
+                let mut buf = Vec::with_capacity(8);
 
                 select! {
                     //Await receving said amounts of bytes
@@ -92,7 +94,7 @@ impl Server {
                                 }
 
                                 //This cannot block as the header and the body is included in one message
-                                let mut body_buf = vec![0; body_length];
+                                let mut body_buf = Vec::with_capacity(body_length);
 
                                 //Read from UdpSocket
                                 socket_handle.recv(&mut body_buf).await.unwrap();
@@ -134,7 +136,7 @@ impl Server {
                         //Iter over all the remote_addresses and echo back the VoipPacket to everyone.
                         for remote_addr in client_list_clone.iter() {
                             //Send the VoipPacket to the remote address
-                            socket_handle.send_to(&outgoing_message.0, remote_addr).await.unwrap();
+                            socket_handle.send_to(outgoing_message.inner(), remote_addr).await.unwrap();
                         }
                     }
 
@@ -148,7 +150,7 @@ impl Server {
             connected_clients: client_list,
             inbound_message_receiver,
             cancellation_token,
-            outbound_message_receiver: outbound_message_sender,
+            outbound_message_sender,
         })
     }
 
@@ -170,12 +172,12 @@ impl Server {
         self.connected_clients.0.clone()
     }
 
-    /// Replies to all of the clients through the [`UdpSocket`].
+    /// Replies to all of the [`SocketAddr`]-es specified in `self.connected_clients` through the [`UdpSocket`] the server is bound to.
     /// Sends the [`VoipPacket`] through a channel, which the server async thread is awaiting.
     pub async fn reply_to_clients(
         &self,
         voip_packet: VoipPacket,
     ) -> std::result::Result<(), tokio::sync::mpsc::error::SendError<VoipPacket>> {
-        self.outbound_message_receiver.send(voip_packet).await
+        self.outbound_message_sender.send(voip_packet).await
     }
 }

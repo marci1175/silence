@@ -27,15 +27,17 @@ mod test_functions {
         });
 
         tokio::spawn(async move {
-            let client = Client::new(Uuid::new_v4(), "[::1]:3004").await.unwrap();
+            let mut client = Client::new(Uuid::new_v4(), "[::1]:3004").await.unwrap();
 
             let packet = VoipHeader::new(
                 crate::packet::VoipMessageType::VoiceMessage(1),
                 client.uuid(),
             );
 
-            client
-                .send_message(&packet.create_message_buffer(&[1; 1]).unwrap())
+            let message_sender = client.message_sender();
+
+            message_sender
+                .send(packet.create_message_buffer(&[1; 1]).unwrap())
                 .await
                 .unwrap();
         });

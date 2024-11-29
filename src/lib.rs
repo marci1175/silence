@@ -4,7 +4,6 @@
     rust_2018_idioms,
     unreachable_pub
 )]
-
 //!
 //! # Silence
 //! Silence. _**Break the silence**_.
@@ -19,6 +18,10 @@
 //!
 //! ***The crate uses [UDP](https://en.wikipedia.org/wiki/User_Datagram_Protocol) for it's real time communication, which does not mitigate against packet loss.***
 //!
+
+/// Maximum Transmission Unit size.
+/// This is a limit of the packet length the client can send, so that messages wont get fragmented.
+pub const MTU_MAX_PACKET_SIZE: usize = 1300;
 
 #[cfg(feature = "udp")]
 pub mod udp;

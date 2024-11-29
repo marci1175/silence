@@ -35,7 +35,14 @@ pub struct VoipHeader {
 
 /// Wrapper type for a buffer.
 #[derive(Debug)]
-pub struct VoipPacket(pub Vec<u8>);
+pub struct VoipPacket(Vec<u8>);
+
+impl VoipPacket {
+    /// Returns the inner buffer of this packet.
+    pub fn inner(&self) -> &[u8] {
+        &self.0
+    }
+}
 
 impl VoipHeader {
     /// Creates a new [`VoipPacket`] instance.

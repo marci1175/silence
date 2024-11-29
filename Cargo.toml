@@ -1,6 +1,6 @@
 [package]
 name = "silence"
-version = "0.1.1"
+version = "0.1.3"
 edition = "2021"
 description = "A crate for creating voip services the easiest and the most reliable way."
 license = "Apache-2.0"
