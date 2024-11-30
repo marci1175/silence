@@ -4,8 +4,8 @@ use crate::{
     packet::{VoipHeader, VoipPacket},
     MTU_MAX_PACKET_SIZE,
 };
-use parking_lot::Mutex;
-use std::{net::SocketAddr, sync::Arc};
+use dashmap::DashSet;
+use std::{net::SocketAddr, ops::{Deref, DerefMut}, sync::Arc};
 use tokio::{
     net::UdpSocket,
     select,
@@ -37,21 +37,21 @@ pub struct Server {
 
 #[derive(Debug, Default, Clone)]
 /// Client list type definition.
-pub struct ClientList(Arc<Mutex<Vec<SocketAddr>>>);
+pub struct ClientList(Arc<DashSet<SocketAddr>>);
 
-impl ClientList {
-    /// **Will block if the underlying mutex is already locked by another thread.**
-    ///
-    /// Removes the specified [`SocketAddr`] from the client list.
-    /// The removed item is returned as an [`Option<SocketAddr>`].
-    ///
-    /// If the item is not found [`None`] is returned.
-    pub fn remove(&self, key: &SocketAddr) -> Option<SocketAddr> {
-        let mut list = self.0.lock();
+/// Implement [`Deref`] for the Wrapper type, so that it automaticly 'inherits' the traits and functions of the wrapped type.
+impl Deref for ClientList {
+    type Target = Arc<DashSet<SocketAddr>>;
 
-        list.iter()
-            .position(|socket_addr| *socket_addr == *key)
-            .map(|pos| list.swap_remove(pos))
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+/// Implement [`DerefMut`] for the Wrapper type, so that it automaticly 'inherits' the mutable traits and functions of the wrapped type.
+impl DerefMut for ClientList {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
 }
 
@@ -72,8 +72,6 @@ impl Server {
 
         tokio::spawn(async move {
             loop {
-                let client_list = client_list_clone.clone();
-
                 //Create buffer for reading incoming messages
                 let mut buf = Vec::with_capacity(8);
 
@@ -131,12 +129,11 @@ impl Server {
                     //Await outbound channel request
                     Some(outgoing_message) = outbound_message_receiver.recv() => {
                         //Clone the client list becasue it doesnt implement Send
-                        let client_list_clone = client_list.0.lock().clone();
 
                         //Iter over all the remote_addresses and echo back the VoipPacket to everyone.
                         for remote_addr in client_list_clone.iter() {
                             //Send the VoipPacket to the remote address
-                            socket_handle.send_to(outgoing_message.inner(), remote_addr).await.unwrap();
+                            socket_handle.send_to(outgoing_message.inner(), remote_addr.key()).await.unwrap();
                         }
                     }
 
@@ -168,7 +165,7 @@ impl Server {
     }
 
     /// This gets the list of [`SocketAddr`]s which the UdpSocket should reply to.
-    pub fn get_reply_to_list_mut(&self) -> Arc<Mutex<Vec<SocketAddr>>> {
+    pub fn get_reply_to_list_mut(&self) -> Arc<DashSet<SocketAddr>> {
         self.connected_clients.0.clone()
     }
 

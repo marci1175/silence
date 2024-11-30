@@ -4,6 +4,7 @@
     rust_2018_idioms,
     unreachable_pub
 )]
+
 //!
 //! # Silence
 //! Silence. _**Break the silence**_.

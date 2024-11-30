@@ -18,7 +18,7 @@ mod test_functions {
             let (_packet, voip_body, _addr) = msg_recv.recv().await.unwrap();
 
             assert_eq!(voip_body, vec![1; 1]);
-            server.get_reply_to_list_mut().lock().push(_addr);
+            server.get_reply_to_list_mut().insert(_addr);
 
             server
                 .reply_to_clients(_packet.create_message_buffer(&voip_body).unwrap())
