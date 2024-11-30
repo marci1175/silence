@@ -1377,9 +1377,9 @@ dependencies = [
 
 [[package]]
 name = "silence-core"
-version = "0.1.7"
+version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34ca434c19a34a02518fe8e44548129505ef9f060b2e6f6683aa89fe50acdbc7"
+checksum = "06e7e8b77c2548c09f8b67ab155b86d1067363b8c84d6c268a158a40edf6ca18"
 dependencies = [
  "anyhow",
  "cpal",

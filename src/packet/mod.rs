@@ -61,7 +61,7 @@ impl VoipHeader {
     pub fn create_message_buffer(
         &self,
         data: &[u8],
-    ) -> Result<VoipPacket, Box<dyn std::error::Error>> {
+    ) -> Result<VoipPacket, rmp_serde::encode::Error> {
         //Create buffer
         let mut buffer: Vec<u8> = vec![];
 

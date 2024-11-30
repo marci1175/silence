@@ -5,7 +5,11 @@ use crate::{
     MTU_MAX_PACKET_SIZE,
 };
 use dashmap::DashSet;
-use std::{net::SocketAddr, ops::{Deref, DerefMut}, sync::Arc};
+use std::{
+    net::SocketAddr,
+    ops::{Deref, DerefMut},
+    sync::Arc,
+};
 use tokio::{
     net::UdpSocket,
     select,

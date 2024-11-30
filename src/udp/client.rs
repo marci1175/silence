@@ -1,10 +1,10 @@
 //! Provides functions and helpers for the client side of the Voip service.
-use crate::packet::VoipHeader;
-use crate::packet::VoipPacket;
-use crate::MTU_MAX_PACKET_SIZE;
-
 use super::Result;
 use super::UdpError;
+use crate::packet::VoipHeader;
+use crate::packet::VoipMessageType;
+use crate::packet::VoipPacket;
+use crate::MTU_MAX_PACKET_SIZE;
 use tokio::net::{ToSocketAddrs, UdpSocket};
 use tokio::select;
 use tokio::sync::mpsc::channel;
@@ -13,6 +13,11 @@ use tokio::sync::mpsc::Sender;
 use tracing::event;
 use tracing::Level;
 use uuid::Uuid;
+
+//Re-import the functions from the core library
+// pub use silence_core::{cam, io::{
+//     available_hosts, default_host, get_audio_device, host_from_id, record, InputDevice,
+// }};
 
 /// Client struct definition, mnade to simplify the usage of a client.
 #[derive(Debug)]
@@ -28,14 +33,73 @@ pub struct Client {
 }
 
 impl Client {
-    /// Creates a new Client instance, automaticly sets up the [`UdpSocket`].
+    /// Creates a new [`Client`] instance, automaticly sets up the [`UdpSocket`].
     pub async fn new<T: ToSocketAddrs>(uuid: Uuid, remote_addr: T) -> Result<Self> {
-        let (outbound_message_sender, mut outbound_message_receiver) = channel::<VoipPacket>(255);
+        //Create I/O channels
+        let (outbound_message_sender, outbound_message_receiver) = channel::<VoipPacket>(255);
         let (inbound_message_sender, inbound_message_receiver) =
             channel::<(VoipHeader, Vec<u8>)>(255);
 
+        //Bind UdpSocket to local address
         let socket_handle = establish_connection(remote_addr).await?;
 
+        //Establish client service
+        Self::create_client_service(
+            socket_handle,
+            inbound_message_sender,
+            outbound_message_receiver,
+        );
+
+        Ok(Self {
+            uuid,
+            inbound_message_receiver,
+            outbound_message_sender,
+        })
+    }
+
+    /// Creates a new [`Client`] instance from an already existing [`UdpSocket`].
+    pub async fn new_from_udp_socket(uuid: Uuid, socket_handle: UdpSocket) -> Result<Self> {
+        //Create I/O channels
+        let (outbound_message_sender, outbound_message_receiver) = channel::<VoipPacket>(255);
+        let (inbound_message_sender, inbound_message_receiver) =
+            channel::<(VoipHeader, Vec<u8>)>(255);
+
+        //Establish client service
+        Self::create_client_service(
+            socket_handle,
+            inbound_message_sender,
+            outbound_message_receiver,
+        );
+
+        Ok(Self {
+            uuid,
+            inbound_message_receiver,
+            outbound_message_sender,
+        })
+    }
+
+    /// Returns the [`Uuid`] this [`Client`] instance was created with.
+    pub fn uuid(&self) -> Uuid {
+        self.uuid
+    }
+
+    /// Writes the message buffer to the [`Client`]'s underlying [`UdpSocket`].
+    pub fn message_sender(&mut self) -> &mut Sender<VoipPacket> {
+        &mut self.outbound_message_sender
+    }
+
+    /// Gets the incoming message receiver ([`Receiver<VoipPacket>`]) handle.
+    /// This is created at the instance creation of [`Server`].
+    /// The server listener threads has ownership of the sender, and sends every incoming message to the receiver.
+    pub fn message_receiver(&mut self) -> &mut Receiver<(VoipHeader, Vec<u8>)> {
+        &mut self.inbound_message_receiver
+    }
+
+    fn create_client_service(
+        socket_handle: UdpSocket,
+        inbound_message_sender: Sender<(VoipHeader, Vec<u8>)>,
+        mut outbound_message_receiver: Receiver<VoipPacket>,
+    ) {
         tokio::spawn(async move {
             loop {
                 let mut buf = Vec::with_capacity(8);
@@ -100,29 +164,26 @@ impl Client {
                 }
             }
         });
-
-        Ok(Self {
-            uuid,
-            inbound_message_receiver,
-            outbound_message_sender,
-        })
     }
 
-    /// Returns the [`Uuid`] this [`Client`] instance was created with.
-    pub fn uuid(&self) -> Uuid {
-        self.uuid
-    }
+    /// Writes a [`VoipPacket`] to the client's underlying [`UdpSocket`].
+    /// Creates a [`VoipPacket`] from the arguments passed in.
+    pub async fn send_data_packet(
+        &self,
+        voip_message_type: VoipMessageType,
+        bytes: &mut dyn Iterator<Item = u8>,
+    ) -> anyhow::Result<()> {
+        // Collect the data
+        let data: Vec<u8> = bytes.collect();
 
-    /// Writes the message buffer to the [`Client`]'s underlying [`UdpSocket`].
-    pub fn message_sender(&mut self) -> &mut Sender<VoipPacket> {
-        &mut self.outbound_message_sender
-    }
+        // Create the VoipPacket
+        let voip_packet =
+            VoipHeader::new(voip_message_type, self.uuid).create_message_buffer(&data)?;
 
-    /// Gets the incoming message receiver ([`Receiver<VoipPacket>`]) handle.
-    /// This is created at the instance creation of [`Server`].
-    /// The server listener threads has ownership of the sender, and sends every incoming message to the receiver.
-    pub fn message_receiver(&mut self) -> &mut Receiver<(VoipHeader, Vec<u8>)> {
-        &mut self.inbound_message_receiver
+        // Send it to the receving part
+        self.outbound_message_sender.send(voip_packet).await?;
+
+        Ok(())
     }
 }
 
@@ -138,7 +199,7 @@ impl Client {
 ///
 /// ***Udp is actually connectionless, please refer to [`UdpSocket::connect`] for its behavior.**
 ///
-pub async fn establish_connection<T: ToSocketAddrs>(remote_addr: T) -> Result<UdpSocket> {
+async fn establish_connection<T: ToSocketAddrs>(remote_addr: T) -> Result<UdpSocket> {
     let udp_socket = UdpSocket::bind("[::]:0")
         .await
         .map_err(UdpError::BindError)?;
