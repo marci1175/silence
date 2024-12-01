@@ -9,6 +9,9 @@ use crate::packet::VoipMessageType;
 use crate::packet::VoipPacket;
 use crate::MTU_MAX_PACKET_SIZE;
 use parking_lot::Mutex;
+use silence_core::avif::encoding::encode_raw_image;
+use silence_core::avif::ravif;
+use silence_core::cam::Webcam;
 use silence_core::opus::encode::encode_samples_opus;
 use silence_core::opus::opus::Encoder;
 use tokio::net::{ToSocketAddrs, UdpSocket};
@@ -167,7 +170,7 @@ impl Client {
         });
     }
 
-    /// Automaticly fetches the samples from the buffer, and sends them to the remote address
+    /// Automaticly fetches the samples from the buffer, and sends them to the remote address.
     pub async fn send_voice_packet(&self, encoder: Encoder, channels: silence_core::opus::opus::Channels, buffer: Arc<Mutex<VecDeque<f32>>>) -> anyhow::Result<()> {
         let mut sample_buf = vec![];
         while let Some(sample) = buffer.lock().pop_front() {
@@ -179,6 +182,22 @@ impl Client {
         for sound_packet in sound_packets {
             self.outbound_message_sender.send(VoipHeader::new(VoipMessageType::VoiceMessage(1), self.uuid).create_message_buffer(&sound_packet.bytes)?).await?;
         }
+
+        Ok(())
+    }
+    
+    /// Automaticly fetches the image from the client's webcam, and sends it to the remote address.
+    pub async fn send_image(&self, encoder: ravif::Encoder, mut webcam: Webcam) -> anyhow::Result<()> {
+        let (bytes, size) = webcam.get_frame()?;
+
+        let encoded_image = encode_raw_image(
+            encoder.clone(),
+            &bytes,
+            size.width as usize,
+            size.height as usize,
+        )?;
+
+        self.outbound_message_sender.send(VoipHeader::new(VoipMessageType::VideoMessage(encoded_image.avif_file.len() as u64), self.uuid).create_message_buffer(&encoded_image.avif_file)?).await?;
 
         Ok(())
     }
