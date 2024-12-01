@@ -10,6 +10,7 @@ use crate::packet::VoipPacket;
 use crate::MTU_MAX_PACKET_SIZE;
 use parking_lot::Mutex;
 use silence_core::opus::encode::encode_samples_opus;
+use silence_core::opus::opus::Encoder;
 use tokio::net::{ToSocketAddrs, UdpSocket};
 use tokio::select;
 use tokio::sync::mpsc::channel;
@@ -166,12 +167,21 @@ impl Client {
         });
     }
 
-    ///
-    // pub fn send_voice_packet(encoder: Encoder, buffer: Arc<Mutex<VecDeque<f32>>>) {
-    //     buffer.lock().iter().take(512);
+    /// Automaticly fetches the samples from the buffer, and sends them to the remote address
+    pub async fn send_voice_packet(&self, encoder: Encoder, channels: silence_core::opus::opus::Channels, buffer: Arc<Mutex<VecDeque<f32>>>) -> anyhow::Result<()> {
+        let mut sample_buf = vec![];
+        while let Some(sample) = buffer.lock().pop_front() {
+            sample_buf.push(sample);
+        }
 
-    //     // encode_samples_opus(encoder, samples, frame_duration_ms, channels)
-    // }
+        let sound_packets = encode_samples_opus(encoder, &sample_buf, 20, channels)?;
+
+        for sound_packet in sound_packets {
+            self.outbound_message_sender.send(VoipHeader::new(VoipMessageType::VoiceMessage(1), self.uuid).create_message_buffer(&sound_packet.bytes)?).await?;
+        }
+
+        Ok(())
+    }
 
     /// Creates a message manually, you can set the message_type and the bytes manually.
     /// Writes a [`VoipPacket`] to the client's underlying [`UdpSocket`].
