@@ -1,10 +1,15 @@
 //! Provides functions and helpers for the client side of the Voip service.
+use std::collections::VecDeque;
+use std::sync::Arc;
+
 use super::Result;
 use super::UdpError;
 use crate::packet::VoipHeader;
 use crate::packet::VoipMessageType;
 use crate::packet::VoipPacket;
 use crate::MTU_MAX_PACKET_SIZE;
+use parking_lot::Mutex;
+use silence_core::opus::encode::encode_samples_opus;
 use tokio::net::{ToSocketAddrs, UdpSocket};
 use tokio::select;
 use tokio::sync::mpsc::channel;
@@ -13,11 +18,6 @@ use tokio::sync::mpsc::Sender;
 use tracing::event;
 use tracing::Level;
 use uuid::Uuid;
-
-//Re-import the functions from the core library
-// pub use silence_core::{cam, io::{
-//     available_hosts, default_host, get_audio_device, host_from_id, record, InputDevice,
-// }};
 
 /// Client struct definition, mnade to simplify the usage of a client.
 #[derive(Debug)]
@@ -166,9 +166,17 @@ impl Client {
         });
     }
 
+    ///
+    // pub fn send_voice_packet(encoder: Encoder, buffer: Arc<Mutex<VecDeque<f32>>>) {
+    //     buffer.lock().iter().take(512);
+
+    //     // encode_samples_opus(encoder, samples, frame_duration_ms, channels)
+    // }
+
+    /// Creates a message manually, you can set the message_type and the bytes manually.
     /// Writes a [`VoipPacket`] to the client's underlying [`UdpSocket`].
     /// Creates a [`VoipPacket`] from the arguments passed in.
-    pub async fn send_data_packet(
+    pub async fn send_bytes(
         &self,
         voip_message_type: VoipMessageType,
         bytes: &mut dyn Iterator<Item = u8>,
@@ -179,6 +187,10 @@ impl Client {
         // Create the VoipPacket
         let voip_packet =
             VoipHeader::new(voip_message_type, self.uuid).create_message_buffer(&data)?;
+
+        if voip_packet.inner().len() > MTU_MAX_PACKET_SIZE {
+            panic!("The manually constructed packet is too large.")
+        }
 
         // Send it to the receving part
         self.outbound_message_sender.send(voip_packet).await?;

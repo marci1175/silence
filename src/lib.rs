@@ -33,3 +33,6 @@ pub mod packet;
 #[doc(hidden)]
 #[cfg(test)]
 pub mod tests;
+
+/// Re-export all of the functionalities depending on the features this crate has enabled.
+pub use silence_core;

@@ -8,8 +8,8 @@ categories = ["asynchronous", "network-programming", "accessibility"]
 
 [features]
 default = ["voice", "udp"]
-video = []
-voice = []
+video = ["silence-core/opus", "silence-core/io"]
+voice = ["silence-core/opencv", "silence-core/av1"]
 
 client = []
 server = []
@@ -27,7 +27,7 @@ dashmap = "6.1.0"
 parking_lot = "0.12.3"
 rmp-serde = "1.3.0"
 serde = {version = "1.0.215", features = ["derive"]}
-silence-core = "0.1.8"
+silence-core = {version = "0.1.8", optional = true}
 thiserror = "2.0.3"
 tokio = {version = "1.41.1", features = ["rt", "macros"]}
 tokio-util = "0.7.12"
